@@ -114,25 +114,74 @@ async function run() {
     });
 
     // Create a new user
-    app.post('/users', async (req, res) => {
-      try {
-        const { name, email, role = 'buyer', whishList = [] } = req.body;
+app.post('/users', async (req, res) => {
+  try {
+    const email = req.body.email;
 
-        // Check if the email already exists
-        const existingUser = await users.findOne({ email });
-        if (existingUser) {
-          return res.status(400).send({ error: true, message: 'Email already exists' });
-        }
+    // Check if the email already exists
+    const existingUser = await users.findOne({ email }); // Use { email } as the filter
+    if (existingUser) {
+      return res.status(400).send({ error: true, message: 'Email already exists' });
+    }
 
-        // Insert user data into the database
-        const newUser = { name, email, role, whishList };
-        const result = await users.insertOne(newUser);
+    // Insert user data into the database
+    const newUser = req.body;
+    const result = await users.insertOne(newUser);
 
-        res.send({ success: true, message: 'User created successfully', userId: result.insertedId });
-      } catch (error) {
-        res.status(500).send({ error: true, message: 'Failed to create user' });
-      }
-    });
+    res.send({ success: true, message: 'User created successfully', userId: result.insertedId });
+  } catch (error) {
+    res.status(500).send({ error: true, message: error.message });
+  }
+});
+
+
+// Get users with optional query parameters
+app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
+  try {
+    const { email, id } = req.query;
+
+    // Build the query object
+    const query = {};
+    if (email) {
+      query.email = email;
+    }
+    if (id) {
+      query._id = new ObjectId(id); // Convert id string to ObjectId
+    }
+
+    // Fetch user(s) based on the query
+    const result = email || id ? await users.findOne(query) : await users.find().toArray();
+
+    // Handle case if no user found
+    if (!result) {
+      return res.status(404).send({ error: true, message: 'User not found' });
+    }
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ error: true, message: 'Failed to fetch users' });
+  }
+});
+
+// Get a user by email
+app.get('/users/email/:email', async (req, res) => {
+  try {
+    const email = req.params.email; // Extract email from URL params
+
+    // Find the user with the specified email
+    const user = await users.findOne({ email });
+
+    // Check if the user exists
+    if (!user) {
+      return res.status(404).send({ error: true, message: 'User not found' });
+    }
+
+    res.send(user);
+  } catch (error) {
+    res.status(500).send({ error: true, message: 'Failed to fetch user' });
+  }
+});
+
 
     // JWT API
     app.post('/jwt', (req, res) => {
