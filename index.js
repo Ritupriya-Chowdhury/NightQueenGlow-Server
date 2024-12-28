@@ -141,6 +141,25 @@ async function run() {
       }
     });
 
+    // Get products by seller email
+    app.get("/products-email",verifyJWT, verifySeller,  async (req, res) => {
+      try {
+        const email = req.decoded.email;;
+        console.log(email)
+    
+        // Fetch products based on the seller's email
+        const productsList = await products.find({ email: email }).toArray();
+    
+        if (productsList.length > 0) {
+          res.send({ success: true, products: productsList });
+        } else {
+          res.status(404).send({ error: true, message: "No products found for this seller" });
+        }
+      } catch (error) {
+        res.status(500).send({ error: true, message: "Failed to fetch products" });
+      }
+    });
+
     // Add a product (Seller only)
     app.post("/products", verifyJWT, verifySeller, async (req, res) => {
       try {
@@ -149,6 +168,58 @@ async function run() {
         res.send({ success: true, result });
       } catch (error) {
         res.status(500).send({ error: true, message: "Failed to add product" });
+      }
+    });
+
+
+    app.put("/products/:id", verifyJWT, verifySeller, async (req, res) => {
+      try {
+        const productId = req.params.id;
+        let updatedProduct = req.body;
+        console.log("updateProducts", updatedProduct);
+    
+        // Check if the product exists
+        const product = await products.findOne({ _id: new ObjectId(productId) });
+    
+        if (!product) {
+          return res.status(404).send({ error: true, message: "Product not found" });
+        }
+    
+        // Remove the _id from the updatedProduct object if it exists
+        if (updatedProduct._id) {
+          delete updatedProduct._id;  // Remove _id field from the object
+        }
+    
+        // Proceed with the update
+        const filter = { _id: new ObjectId(productId) };
+        const updateDoc = {
+          $set: updatedProduct,
+        };
+    
+        const result = await products.updateOne(filter, updateDoc);
+        console.log(result);
+    
+        res.send({ success: true, message: "Product updated successfully", result });
+      } catch (error) {
+        res.status(500).send({ error: true, message: "Failed to update product" });
+      }
+    });
+    
+    
+    // Delete Product Route
+    app.delete("/products/:id", verifyJWT, verifySeller, async (req, res) => {
+      try {
+        const productId = req.params.id;
+        const filter = { _id: new ObjectId(productId) }; // Use ObjectId to find the product by ID
+    
+        const result = await products.deleteOne(filter);
+        if (result.deletedCount === 0) {
+          return res.status(404).send({ error: true, message: "Product not found" });
+        }
+    
+        res.send({ success: true, message: "Product deleted successfully" });
+      } catch (error) {
+        res.status(500).send({ error: true, message: "Failed to delete product" });
       }
     });
 
